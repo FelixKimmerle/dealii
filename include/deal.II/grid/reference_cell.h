@@ -720,7 +720,8 @@ public:
     const RefinementCase<dim - 1> face_refinement_case) const;
 
   /**
-   * Correct vertex index depending on face orientation.
+   * Get vertex index of vertex @p vertex belonging to face @p face of the
+   * current cell while accounting for orientation @p face_orientation .
    */
   unsigned int
   standard_to_real_face_vertex(
@@ -729,7 +730,8 @@ public:
     const types::geometric_orientation face_orientation) const;
 
   /**
-   * Correct line index depending on face orientation.
+   * Get line index of line @p line belonging to face @p face of the
+   * current cell while accounting for orientation @p face_orientation .
    */
   unsigned int
   standard_to_real_face_line(
@@ -1080,32 +1082,62 @@ public:
   faces_for_given_vertex(const unsigned int vertex_index) const;
 
   /**
-   * Return a vector of line indices for all new faces required for isotropic
-   * refinement.
+   * Return a two-dimensional array `new_quad_lines`, where `new_quad_lines[q]`
+   * lists the lines building up the q'th quad required for isotropic
+   * refinement. For technical reasons, `new_quad_lines[q]` is of size (12, 4),
+   * but only the first (n_faces(), n_lines()) entries are used, with the rest
+   * being set to numbers::invalid_unsigned_int.
+   *
+   * The chosen isotropic refinement (see
+   * ReferenceCell::get_isotropic_refinement_choice) is provided by
+   * @p refinement_choice .
    */
   constexpr dealii::ndarray<unsigned int, 12, 4>
   new_isotropic_child_face_lines(const unsigned int refinement_choice) const;
 
   /**
-   * Return a vector of vertex indices for all new face lines required for
-   * isotropic refinement.
+   * Return a three-dimensional array `quad_lines_vertices`, where
+   * `quad_lines_vertices[q][l]` lists the pairs of vertices defining the l'th
+   * line of the q'th quad. It is used during isotropic refinement to determine
+   * the orientation of the l'th line in the q'th quad. For technical reasons,
+   * `quad_lines_vertices` is of the given size but only some entries are used
+   * (see occurrences within execute_refinement_isotropic() in tria.cc for more
+   * details).
+   *
+   * The chosen isotropic refinement (see
+   * ReferenceCell::get_isotropic_refinement_choice) is provided by
+   * @p refinement_choice .
    */
   constexpr dealii::ndarray<unsigned int, 12, 4, 2>
   new_isotropic_child_face_line_vertices(
     const unsigned int refinement_choice) const;
 
   /**
-   * Return a vector of face indices for all new cells required for isotropic
-   * refinement.
+   * Return a two-dimensional array `cell_quads`, where `cell_quads[c]` lists
+   * the quads of the c'th new child required for isotropic refinement. For
+   * technical reasons, `cell_quads[c]` is of size 6, but only the first
+   * n_faces() entries are used, with the rest being set to
+   * numbers::invalid_unsigned_int.
+   *
+   * The chosen isotropic refinement (see
+   * ReferenceCell::get_isotropic_refinement_choice) is provided by
+   * @p refinement_choice .
    */
   constexpr dealii::ndarray<unsigned int, 8, 6>
   new_isotropic_child_cell_faces(const unsigned int refinement_choice) const;
 
   /**
-   * Return a vector of vertex indices for all new cells required for isotropic
-   * refinement.
+   * Return a two-dimensional array `cell_vertices`, where `cell_vertices[c]`
+   * lists the vertices of the c'th new child required for isotropic refinement.
+   * For technical reasons, `cell_vertices[c]` is of size 8, but only the first
+   * n_vertices() entries are used, with the rest being set to
+   * numbers::invalid_unsigned_int.
+   *
+   * The chosen isotropic refinement (see
+   * ReferenceCell::get_isotropic_refinement_choice) is provided by
+   * @p refinement_choice .
    */
-  constexpr dealii::ndarray<unsigned int, 8, 4>
+  constexpr dealii::ndarray<unsigned int, 8, 8>
   new_isotropic_child_cell_vertices(const unsigned int refinement_choice) const;
 
   /**
@@ -1271,7 +1303,7 @@ private:
     {{{0, 1}}, {{1, 0}}}};
 
   /**
-   * Table containing all vertex permutations for a triangle.
+   * Table containing all vertex permutations for all rotations of a triangle.
    */
   static constexpr ndarray<unsigned int, 6, 3> triangle_vertex_permutations = {
     {{{0, 1, 2}},
@@ -1282,7 +1314,8 @@ private:
      {{1, 0, 2}}}};
 
   /**
-   * Table containing all vertex permutations for a quadrilateral.
+   * Table containing all vertex permutations for all rotations of a
+   * quadrilateral.
    */
   static constexpr ndarray<unsigned int, 8, 4>
     quadrilateral_vertex_permutations = {{
@@ -1294,6 +1327,33 @@ private:
       {{3, 1, 2, 0}},
       {{1, 3, 0, 2}},
       {{1, 0, 3, 2}},
+    }};
+
+  /**
+   * Table containing all line permutations for all rotations of a triangle.
+   */
+  static constexpr ndarray<unsigned int, 6, 3> triangle_line_permutations = {
+    {{{0, 1, 2}},
+     {{2, 1, 0}},
+     {{2, 0, 1}},
+     {{1, 0, 2}},
+     {{1, 2, 0}},
+     {{0, 2, 1}}}};
+
+  /**
+   * Table containing all line permutations for all rotations of a
+   * quadrilateral.
+   */
+  static constexpr ndarray<unsigned int, 8, 4> quadrilateral_line_permutations =
+    {{
+      {{0, 1, 2, 3}},
+      {{2, 3, 0, 1}},
+      {{3, 2, 0, 1}},
+      {{0, 1, 3, 2}},
+      {{1, 0, 3, 2}},
+      {{3, 2, 1, 0}},
+      {{2, 3, 1, 0}},
+      {{1, 0, 2, 3}},
     }};
 
   /**
@@ -1778,45 +1838,61 @@ ReferenceCell::new_isotropic_child_cell_faces(
 
 
 
-constexpr dealii::ndarray<unsigned int, 8, 4>
+constexpr dealii::ndarray<unsigned int, 8, 8>
 ReferenceCell::new_isotropic_child_cell_vertices(
   const unsigned int refinement_choice) const
 {
   AssertIndexRange(refinement_choice, n_isotropic_refinement_choices());
 
+  constexpr unsigned int X = numbers::invalid_unsigned_int;
+
   switch (this->kind)
     {
       case ReferenceCells::Tetrahedron:
         {
-          constexpr dealii::ndarray<unsigned int, 3, 8, 4> cell_vertices_tet = {
+          constexpr dealii::ndarray<unsigned int, 3, 8, 8> cell_vertices_tet = {
             {// new line is (6,8)
-             {{{{0, 4, 6, 7}},
-               {{4, 1, 5, 8}},
-               {{6, 5, 2, 9}},
-               {{7, 8, 9, 3}},
-               {{4, 5, 6, 8}},
-               {{4, 7, 8, 6}},
-               {{6, 9, 7, 8}},
-               {{5, 8, 9, 6}}}},
+             {{{{0, 4, 6, 7, X, X, X, X}},
+               {{4, 1, 5, 8, X, X, X, X}},
+               {{6, 5, 2, 9, X, X, X, X}},
+               {{7, 8, 9, 3, X, X, X, X}},
+               {{4, 5, 6, 8, X, X, X, X}},
+               {{4, 7, 8, 6, X, X, X, X}},
+               {{6, 9, 7, 8, X, X, X, X}},
+               {{5, 8, 9, 6, X, X, X, X}}}},
              // new line is (5,7)
-             {{{{0, 4, 6, 7}},
-               {{4, 1, 5, 8}},
-               {{6, 5, 2, 9}},
-               {{7, 8, 9, 3}},
-               {{4, 5, 6, 7}},
-               {{4, 7, 8, 5}},
-               {{6, 9, 7, 5}},
-               {{5, 8, 9, 7}}}},
+             {{{{0, 4, 6, 7, X, X, X, X}},
+               {{4, 1, 5, 8, X, X, X, X}},
+               {{6, 5, 2, 9, X, X, X, X}},
+               {{7, 8, 9, 3, X, X, X, X}},
+               {{4, 5, 6, 7, X, X, X, X}},
+               {{4, 7, 8, 5, X, X, X, X}},
+               {{6, 9, 7, 5, X, X, X, X}},
+               {{5, 8, 9, 7, X, X, X, X}}}},
              // new line is (4,9)
-             {{{{0, 4, 6, 7}},
-               {{4, 1, 5, 8}},
-               {{6, 5, 2, 9}},
-               {{7, 8, 9, 3}},
-               {{4, 5, 6, 9}},
-               {{4, 7, 8, 9}},
-               {{6, 9, 7, 4}},
-               {{5, 8, 9, 4}}}}}};
+             {{{{0, 4, 6, 7, X, X, X, X}},
+               {{4, 1, 5, 8, X, X, X, X}},
+               {{6, 5, 2, 9, X, X, X, X}},
+               {{7, 8, 9, 3, X, X, X, X}},
+               {{4, 5, 6, 9, X, X, X, X}},
+               {{4, 7, 8, 9, X, X, X, X}},
+               {{6, 9, 7, 4, X, X, X, X}},
+               {{5, 8, 9, 4, X, X, X, X}}}}}};
           return cell_vertices_tet[refinement_choice];
+        }
+      case ReferenceCells::Hexahedron:
+        {
+          constexpr dealii::ndarray<unsigned int, 8, 8> cell_vertices_hex = {{
+            {{0, 10, 8, 24, 16, 22, 20, 26}},  // bottom children
+            {{10, 1, 24, 9, 22, 17, 26, 21}},  //
+            {{8, 24, 2, 11, 20, 26, 18, 23}},  //
+            {{24, 9, 11, 3, 26, 21, 23, 19}},  //
+            {{16, 22, 20, 26, 4, 14, 12, 25}}, // top children
+            {{22, 17, 26, 21, 14, 5, 25, 13}}, //
+            {{20, 26, 18, 23, 12, 25, 6, 15}}, //
+            {{26, 21, 23, 19, 25, 13, 15, 7}}  //
+          }};
+          return cell_vertices_hex;
         }
       default:
         DEAL_II_NOT_IMPLEMENTED();
@@ -3100,14 +3176,6 @@ ReferenceCell::standard_to_real_face_line(
   AssertIndexRange(face, n_faces());
   AssertIndexRange(line, face_reference_cell(face).n_lines());
 
-  static constexpr ndarray<unsigned int, 6, 3> triangle_table = {{{{0, 1, 2}},
-                                                                  {{2, 1, 0}},
-                                                                  {{2, 0, 1}},
-                                                                  {{1, 0, 2}},
-                                                                  {{1, 2, 0}},
-                                                                  {{0, 2, 1}}}};
-
-
   switch (this->kind)
     {
       case ReferenceCells::Vertex:
@@ -3117,48 +3185,29 @@ ReferenceCell::standard_to_real_face_line(
         DEAL_II_NOT_IMPLEMENTED();
         break;
       case ReferenceCells::Tetrahedron:
-        return triangle_table[combined_face_orientation][line];
+        return triangle_line_permutations[combined_face_orientation][line];
       case ReferenceCells::Pyramid:
         if (face == 0) // The quadrilateral face
           {
-            const auto [face_orientation, face_rotation, face_flip] =
-              internal::split_face_orientation(combined_face_orientation);
-
-            return GeometryInfo<3>::standard_to_real_face_line(line,
-                                                               face_orientation,
-                                                               face_flip,
-                                                               face_rotation);
+            return quadrilateral_line_permutations[combined_face_orientation]
+                                                  [line];
           }
         else // One of the triangular faces
           {
-            return triangle_table[combined_face_orientation][line];
+            return triangle_line_permutations[combined_face_orientation][line];
           }
       case ReferenceCells::Wedge:
         if (face > 1) // One of the quadrilateral faces
           {
-            const auto [face_orientation, face_rotation, face_flip] =
-              internal::split_face_orientation(combined_face_orientation);
-
-            return GeometryInfo<3>::standard_to_real_face_line(line,
-                                                               face_orientation,
-                                                               face_flip,
-                                                               face_rotation);
+            return quadrilateral_line_permutations[combined_face_orientation]
+                                                  [line];
           }
         else // One of the triangular faces
-          return triangle_table[combined_face_orientation][line];
+          return triangle_line_permutations[combined_face_orientation][line];
       case ReferenceCells::Hexahedron:
         {
-          static constexpr ndarray<unsigned int, 8, 4> table = {{
-            {{0, 1, 2, 3}},
-            {{2, 3, 0, 1}},
-            {{3, 2, 0, 1}},
-            {{0, 1, 3, 2}},
-            {{1, 0, 3, 2}},
-            {{3, 2, 1, 0}},
-            {{2, 3, 1, 0}},
-            {{1, 0, 2, 3}},
-          }};
-          return table[combined_face_orientation][line];
+          return quadrilateral_line_permutations[combined_face_orientation]
+                                                [line];
         }
       default:
         DEAL_II_NOT_IMPLEMENTED();
