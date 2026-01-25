@@ -12,14 +12,14 @@
 //
 // ------------------------------------------------------------------------
 
-// Check the ROLVector's reduce function applied to a distributed MPI vector.
+// Check the ROLAdaptor's reduce function applied to a distributed MPI vector.
 
 #include <deal.II/base/mpi.h>
 
 #include <deal.II/lac/la_parallel_vector.h>
 #include <deal.II/lac/trilinos_vector.h>
 
-#include <deal.II/trilinos/rol_vector.h>
+#include <deal.II/trilinos/rol_adaptor.h>
 
 #include <ROL_Elementwise_Reduce.hpp>
 
@@ -41,7 +41,7 @@ test()
   v[myid] = myid;
 
   // wrap for ROL
-  TrilinosWrappers::ROLVector<VectorType> rol_v(ROL::makePtrFromRef(v));
+  TrilinosWrappers::ROLAdaptor<VectorType> rol_v(ROL::makePtrFromRef(v));
 
   // pick reduction operation
   ROL::Elementwise::ReductionSum<typename VectorType::value_type> r;
