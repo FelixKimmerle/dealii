@@ -70,23 +70,25 @@ BlockSparseMatrixEZ<number>::operator=(const double d)
 
 template <typename number>
 void
-BlockSparseMatrixEZ<number>::reinit(const unsigned int rows,
-                                    const unsigned int cols)
+BlockSparseMatrixEZ<number>::reinit(const unsigned int br,
+                                    const unsigned int bc)
 {
-  this->row_block_indices.reinit(rows, 0);
-  this->column_block_indices.reinit(cols, 0);
-  this->sub_objects.reinit(rows, cols);
+  clear(); // calls BlockMatrixBase::clear(), deletes old blocks
+  this->sub_objects.reinit(br, bc);
+
+  for (unsigned int r = 0; r < br; ++r)
+    for (unsigned int c = 0; c < bc; ++c)
+      this->sub_objects[r][c] = new SparseMatrixEZ<number>();
+
+  this->row_block_indices    = BlockIndices(br, 0);
+  this->column_block_indices = BlockIndices(bc, 0);
 }
-
-
 
 template <typename number>
 void
 BlockSparseMatrixEZ<number>::clear()
 {
-  this->row_block_indices.reinit(0, 0);
-  this->column_block_indices.reinit(0, 0);
-  this->sub_objects.reinit(0, 0);
+  BlockMatrixBase<SparseMatrixEZ<number>>::clear();
 }
 
 

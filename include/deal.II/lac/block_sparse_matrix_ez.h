@@ -62,6 +62,11 @@ class BlockSparseMatrixEZ : public BlockMatrixBase<SparseMatrixEZ<Number>>
 {
 public:
   /**
+   * Typedef the base class for simpler access to its own alias.
+   */
+  using BaseClass = BlockMatrixBase<SparseMatrixEZ<Number>>;
+
+  /**
    * Declare type for container size.
    */
   using size_type = types::global_dof_index;
@@ -138,6 +143,82 @@ public:
   bool
   empty() const;
 
+  /**
+   * @name Multiplications
+   */
+  /** @{ */
+  /**
+   * Matrix-vector multiplication: let $dst = M*src$ with $M$ being this
+   * matrix.
+   */
+  template <typename block_number>
+  void
+  vmult(BlockVector<block_number>       &dst,
+        const BlockVector<block_number> &src) const;
+
+  /**
+   * Matrix-vector multiplication. Just like the previous function, but only
+   * applicable if the matrix has only one block column.
+   */
+  template <typename block_number, typename nonblock_number>
+  void
+  vmult(BlockVector<block_number>     &dst,
+        const Vector<nonblock_number> &src) const;
+
+  /**
+   * Matrix-vector multiplication. Just like the previous function, but only
+   * applicable if the matrix has only one block row.
+   */
+  template <typename block_number, typename nonblock_number>
+  void
+  vmult(Vector<nonblock_number>         &dst,
+        const BlockVector<block_number> &src) const;
+
+  /**
+   * Matrix-vector multiplication. Just like the previous function, but only
+   * applicable if the matrix has only one block.
+   */
+  template <typename nonblock_number>
+  void
+  vmult(Vector<nonblock_number> &dst, const Vector<nonblock_number> &src) const;
+
+  /**
+   * Matrix-vector multiplication: let $dst = M^T*src$ with $M$ being this
+   * matrix. This function does the same as vmult() but takes the transposed
+   * matrix.
+   */
+  template <typename block_number>
+  void
+  Tvmult(BlockVector<block_number>       &dst,
+         const BlockVector<block_number> &src) const;
+
+  /**
+   * Matrix-vector multiplication. Just like the previous function, but only
+   * applicable if the matrix has only one block row.
+   */
+  template <typename block_number, typename nonblock_number>
+  void
+  Tvmult(BlockVector<block_number>     &dst,
+         const Vector<nonblock_number> &src) const;
+
+  /**
+   * Matrix-vector multiplication. Just like the previous function, but only
+   * applicable if the matrix has only one block column.
+   */
+  template <typename block_number, typename nonblock_number>
+  void
+  Tvmult(Vector<nonblock_number>         &dst,
+         const BlockVector<block_number> &src) const;
+
+  /**
+   * Matrix-vector multiplication. Just like the previous function, but only
+   * applicable if the matrix has only one block.
+   */
+  template <typename nonblock_number>
+  void
+  Tvmult(Vector<nonblock_number>       &dst,
+         const Vector<nonblock_number> &src) const;
+  /** @} */
 
   /**
    * Print statistics. If @p full is @p true, prints a histogram of all
@@ -153,6 +234,92 @@ public:
 /*----------------------------------------------------------------------*/
 
 
+
+template <typename number>
+template <typename block_number>
+inline void
+BlockSparseMatrixEZ<number>::vmult(BlockVector<block_number>       &dst,
+                                   const BlockVector<block_number> &src) const
+{
+  BaseClass::vmult_block_block(dst, src);
+}
+
+
+
+template <typename number>
+template <typename block_number, typename nonblock_number>
+inline void
+BlockSparseMatrixEZ<number>::vmult(BlockVector<block_number>     &dst,
+                                   const Vector<nonblock_number> &src) const
+{
+  BaseClass::vmult_block_nonblock(dst, src);
+}
+
+
+
+template <typename number>
+template <typename block_number, typename nonblock_number>
+inline void
+BlockSparseMatrixEZ<number>::vmult(Vector<nonblock_number>         &dst,
+                                   const BlockVector<block_number> &src) const
+{
+  BaseClass::vmult_nonblock_block(dst, src);
+}
+
+
+
+template <typename number>
+template <typename nonblock_number>
+inline void
+BlockSparseMatrixEZ<number>::vmult(Vector<nonblock_number>       &dst,
+                                   const Vector<nonblock_number> &src) const
+{
+  BaseClass::vmult_nonblock_nonblock(dst, src);
+}
+
+
+
+template <typename number>
+template <typename block_number>
+inline void
+BlockSparseMatrixEZ<number>::Tvmult(BlockVector<block_number>       &dst,
+                                    const BlockVector<block_number> &src) const
+{
+  BaseClass::Tvmult_block_block(dst, src);
+}
+
+
+
+template <typename number>
+template <typename block_number, typename nonblock_number>
+inline void
+BlockSparseMatrixEZ<number>::Tvmult(BlockVector<block_number>     &dst,
+                                    const Vector<nonblock_number> &src) const
+{
+  BaseClass::Tvmult_block_nonblock(dst, src);
+}
+
+
+
+template <typename number>
+template <typename block_number, typename nonblock_number>
+inline void
+BlockSparseMatrixEZ<number>::Tvmult(Vector<nonblock_number>         &dst,
+                                    const BlockVector<block_number> &src) const
+{
+  BaseClass::Tvmult_nonblock_block(dst, src);
+}
+
+
+
+template <typename number>
+template <typename nonblock_number>
+inline void
+BlockSparseMatrixEZ<number>::Tvmult(Vector<nonblock_number>       &dst,
+                                    const Vector<nonblock_number> &src) const
+{
+  BaseClass::Tvmult_nonblock_nonblock(dst, src);
+}
 
 template <typename number>
 template <typename StreamType>
