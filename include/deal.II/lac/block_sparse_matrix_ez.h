@@ -86,7 +86,7 @@ public:
   /**
    * Copy constructor. This is needed for some container classes. It creates
    * an object of the same number of block rows and columns. Since it calls
-   * the copy constructor of SparseMatrixEZ, the block s must be empty.
+   * the copy constructor of SparseMatrixEZ, the blocks must be empty.
    */
   BlockSparseMatrixEZ(const BlockSparseMatrixEZ<Number> &);
 
@@ -108,7 +108,6 @@ public:
   BlockSparseMatrixEZ &
   operator=(const double d);
 
-
   /**
    * Set matrix to zero dimensions and release memory.
    */
@@ -124,6 +123,7 @@ public:
    */
   void
   reinit(const unsigned int n_block_rows, const unsigned int n_block_cols);
+
   /**
    * This function collects the sizes of the sub-objects and stores them in
    * internal arrays, in order to be able to relay global indices into the
@@ -132,7 +132,6 @@ public:
    */
   void
   collect_sizes();
-
 
   /**
    * Return whether the object is empty. It is empty if no memory is
@@ -244,8 +243,6 @@ BlockSparseMatrixEZ<number>::vmult(BlockVector<block_number>       &dst,
   BaseClass::vmult_block_block(dst, src);
 }
 
-
-
 template <typename number>
 template <typename block_number, typename nonblock_number>
 inline void
@@ -254,8 +251,6 @@ BlockSparseMatrixEZ<number>::vmult(BlockVector<block_number>     &dst,
 {
   BaseClass::vmult_block_nonblock(dst, src);
 }
-
-
 
 template <typename number>
 template <typename block_number, typename nonblock_number>
@@ -266,8 +261,6 @@ BlockSparseMatrixEZ<number>::vmult(Vector<nonblock_number>         &dst,
   BaseClass::vmult_nonblock_block(dst, src);
 }
 
-
-
 template <typename number>
 template <typename nonblock_number>
 inline void
@@ -276,8 +269,6 @@ BlockSparseMatrixEZ<number>::vmult(Vector<nonblock_number>       &dst,
 {
   BaseClass::vmult_nonblock_nonblock(dst, src);
 }
-
-
 
 template <typename number>
 template <typename block_number>
@@ -288,8 +279,6 @@ BlockSparseMatrixEZ<number>::Tvmult(BlockVector<block_number>       &dst,
   BaseClass::Tvmult_block_block(dst, src);
 }
 
-
-
 template <typename number>
 template <typename block_number, typename nonblock_number>
 inline void
@@ -298,8 +287,6 @@ BlockSparseMatrixEZ<number>::Tvmult(BlockVector<block_number>     &dst,
 {
   BaseClass::Tvmult_block_nonblock(dst, src);
 }
-
-
 
 template <typename number>
 template <typename block_number, typename nonblock_number>
@@ -310,8 +297,6 @@ BlockSparseMatrixEZ<number>::Tvmult(Vector<nonblock_number>         &dst,
   BaseClass::Tvmult_nonblock_block(dst, src);
 }
 
-
-
 template <typename number>
 template <typename nonblock_number>
 inline void
@@ -320,6 +305,8 @@ BlockSparseMatrixEZ<number>::Tvmult(Vector<nonblock_number>       &dst,
 {
   BaseClass::Tvmult_nonblock_nonblock(dst, src);
 }
+
+
 
 template <typename number>
 template <typename StreamType>

@@ -28,9 +28,24 @@ template <typename number>
 BlockSparseMatrixEZ<number>::BlockSparseMatrixEZ(const unsigned int rows,
                                                  const unsigned int cols)
 {
-  this->row_block_indices.reinit(rows, 0);
-  this->column_block_indices.reinit(cols, 0);
+  reinit(rows, cols);
 }
+
+
+
+template <typename number>
+BlockSparseMatrixEZ<number>::BlockSparseMatrixEZ(
+  const BlockSparseMatrixEZ<number> &m)
+{
+  Assert(
+    m.empty(),
+    ExcMessage(
+      "This operator can only be called if the provided right "
+      "hand side is a block matrix with empty blocks. This operator can not be "
+      "used to copy a non-empty matrix."));
+  this->reinit(m.n_block_rows(), m.n_block_cols());
+}
+
 
 
 template <typename number>
@@ -68,6 +83,7 @@ BlockSparseMatrixEZ<number>::operator=(const double d)
 }
 
 
+
 template <typename number>
 void
 BlockSparseMatrixEZ<number>::reinit(const unsigned int br,
@@ -83,6 +99,8 @@ BlockSparseMatrixEZ<number>::reinit(const unsigned int br,
   this->row_block_indices    = BlockIndices(br, 0);
   this->column_block_indices = BlockIndices(bc, 0);
 }
+
+
 
 template <typename number>
 void

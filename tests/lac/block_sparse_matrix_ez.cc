@@ -27,16 +27,6 @@ namespace
 
   template <typename Number>
   void
-  reinit_ez(SparseMatrixEZ<Number> &m,
-            const size_type         n_rows,
-            const size_type         n_cols,
-            const unsigned int      max_entries_per_row)
-  {
-    m.reinit(n_rows, n_cols, max_entries_per_row);
-  }
-
-  template <typename Number>
-  void
   setup_blocks(BlockSparseMatrixEZ<Number>  &M,
                const std::vector<size_type> &row_block_sizes,
                const std::vector<size_type> &col_block_sizes,
@@ -49,12 +39,29 @@ namespace
 
     for (unsigned int br = 0; br < n_br; ++br)
       for (unsigned int bc = 0; bc < n_bc; ++bc)
-        reinit_ez(M.block(br, bc),
-                  row_block_sizes[br],
-                  col_block_sizes[bc],
-                  max_entries_per_row);
+        M.block(br, bc).reinit(row_block_sizes[br],
+                               col_block_sizes[bc],
+                               max_entries_per_row);
 
     M.collect_sizes();
+  }
+
+  template <typename VectorType>
+  void
+  fill_linear(VectorType &v)
+  {
+    for (size_type i = 0; i < v.size(); ++i)
+      v(i) = static_cast<double>(i + 1);
+  }
+
+  template <typename VectorType>
+  void
+  print_vector(const std::string &label, const VectorType &v)
+  {
+    deallog << label;
+    for (size_type i = 0; i < v.size(); ++i)
+      deallog << ' ' << v(i);
+    deallog << std::endl;
   }
 
   // Fill a sparse pattern with at most two entries per row:
@@ -91,120 +98,105 @@ namespace
 
   template <typename Number>
   Vector<Number>
-  reference_vmult(const BlockSparseMatrixEZ<Number> &M, const Vector<Number> &x)
+  reference_vmult(const BlockSparseMatrixEZ<Number> &bsm_ez,
+                  const Vector<Number>              &x)
   {
-    const size_type n_rows = M.m();
-    const size_type n_cols = M.n();
+    const size_type n_rows = bsm_ez.m();
+    const size_type n_cols = bsm_ez.n();
 
     AssertThrow(x.size() == n_cols, ExcInternalError());
 
-    Vector<Number> y(n_rows);
+    Vector<Number> result(n_rows);
     for (size_type i = 0; i < n_rows; ++i)
       {
-        Number          sum = Number();
-        const size_type c1  = i % n_cols;
-        const Number    v1  = Number(1 + i);
-        sum += v1 * x(c1);
+        Number          sum      = Number();
+        const size_type column_1 = i % n_cols;
+        const Number    value_1  = Number(1 + i);
+        sum += value_1 * x(column_1);
 
         if (n_cols > 1)
           {
-            const size_type c2 = (i + 1) % n_cols;
-            const Number    v2 = Number(10 + i);
-            sum += v2 * x(c2);
+            const size_type column_2 = (i + 1) % n_cols;
+            const Number    value_2  = Number(10 + i);
+            sum += value_2 * x(column_2);
           }
 
-        y(i) = sum;
+        result(i) = sum;
       }
-    return y;
+    return result;
   }
 
   template <typename Number>
   Vector<Number>
-  reference_Tvmult(const BlockSparseMatrixEZ<Number> &M,
+  reference_Tvmult(const BlockSparseMatrixEZ<Number> &bsm_ez,
                    const Vector<Number>              &x)
   {
-    const size_type n_rows = M.m();
-    const size_type n_cols = M.n();
+    const size_type n_rows = bsm_ez.m();
+    const size_type n_cols = bsm_ez.n();
 
     AssertThrow(x.size() == n_rows, ExcInternalError());
 
-    Vector<Number> y(n_cols);
-    y = 0;
+    Vector<Number> result(n_cols);
+    result = 0;
 
     for (size_type i = 0; i < n_rows; ++i)
       {
-        const size_type c1 = i % n_cols;
-        const Number    v1 = Number(1 + i);
-        y(c1) += v1 * x(i);
+        const size_type column_1 = i % n_cols;
+        const Number    value_1  = Number(1 + i);
+        result(column_1) += value_1 * x(i);
 
         if (n_cols > 1)
           {
-            const size_type c2 = (i + 1) % n_cols;
-            const Number    v2 = Number(10 + i);
-            y(c2) += v2 * x(i);
+            const size_type column_2 = (i + 1) % n_cols;
+            const Number    value_2  = Number(10 + i);
+            result(column_2) += value_2 * x(i);
           }
       }
-    return y;
+    return result;
   }
 
-  template <typename VectorType>
-  void
-  fill_linear(VectorType &v)
-  {
-    for (size_type i = 0; i < v.size(); ++i)
-      v(i) = static_cast<double>(i + 1);
-  }
 
-  template <typename VectorType>
-  void
-  print_vector(const std::string &label, const VectorType &v)
-  {
-    deallog << label;
-    for (size_type i = 0; i < v.size(); ++i)
-      deallog << ' ' << v(i);
-    deallog << std::endl;
-  }
 
   void
   test_get_set_add_and_scaling()
   {
     deallog.push("get/set/add/scalar");
 
-    BlockSparseMatrixEZ<double> M;
+    BlockSparseMatrixEZ<double> bsm_ez;
 
     // 2x2 blocks; total size 5x5
-    setup_blocks<double>(M,
+    setup_blocks<double>(bsm_ez,
                          /*row blocks*/ {2, 3},
                          /*col blocks*/ {3, 2},
                          /*max entries/row*/ 4);
 
-    fill_two_entries_per_row(M);
+    fill_two_entries_per_row(bsm_ez);
 
     // Basic "get" checks (via operator()(i,j)):
-    deallog << "M(0,0) " << M(0, 0) << std::endl;
-    deallog << "M(0,1) " << M(0, 1) << std::endl;
-    deallog << "M(3,3) " << M(3, 3) << std::endl;
-    deallog << "M(3,4) " << M(3, 4) << std::endl;
+    deallog << "M(0,0) " << bsm_ez(0, 0) << std::endl;
+    deallog << "M(0,1) " << bsm_ez(0, 1) << std::endl;
+    deallog << "M(3,3) " << bsm_ez(3, 3) << std::endl;
+    deallog << "M(3,4) " << bsm_ez(3, 4) << std::endl;
 
     // Entry add:
-    M.add(3, 4, 5.0); // modifies an entry that is present in our pattern
-    deallog << "after add M(3,4) " << M(3, 4) << std::endl;
+    bsm_ez.add(3, 4, 5.0); // modifies an entry that is present in our pattern
+    deallog << "after add M(3,4) " << bsm_ez(3, 4) << std::endl;
 
     // Scalar mult/div:
-    M *= 2.0;
-    deallog << "after *=2 M(3,4) " << M(3, 4) << std::endl;
+    bsm_ez *= 2.0;
+    deallog << "after *=2 M(3,4) " << bsm_ez(3, 4) << std::endl;
 
-    M /= 4.0; // net scale = 1/2
-    deallog << "after /=4 M(3,4) " << M(3, 4) << std::endl;
+    bsm_ez /= 4.0; // net scale = 1/2
+    deallog << "after /=4 M(3,4) " << bsm_ez(3, 4) << std::endl;
 
     // Also check that scaling affects vmult consistently:
-    BlockVector<double> x, y;
-    x.reinit({3, 2}); // col blocks
-    y.reinit({2, 3}); // row blocks
+    BlockVector<double> x, result;
+    x.reinit({3, 2});      // col blocks
+    result.reinit({2, 3}); // row blocks
     fill_linear(x);
 
-    M.vmult(y, x);
-    print_vector("vmult_scaled", y);
+    bsm_ez.vmult(result, x);
+    print_vector("vmult_scaled", result);
 
     deallog.pop();
   }
@@ -214,46 +206,46 @@ namespace
   {
     deallog.push("vmult/Tvmult block-block");
 
-    BlockSparseMatrixEZ<double> M;
-    setup_blocks<double>(M, {2, 3}, {3, 2}, 4);
-    fill_two_entries_per_row(M);
+    BlockSparseMatrixEZ<double> bsm_ez;
+    setup_blocks<double>(bsm_ez, {2, 3}, {3, 2}, 4);
+    fill_two_entries_per_row(bsm_ez);
 
-    BlockVector<double> x, y;
-    x.reinit({3, 2}); // columns
-    y.reinit({2, 3}); // rows
+    BlockVector<double> x, result;
+    x.reinit({3, 2});      // columns
+    result.reinit({2, 3}); // rows
     fill_linear(x);
 
-    M.vmult(y, x);
+    bsm_ez.vmult(result, x);
 
-    Vector<double> x_flat(M.n());
+    Vector<double> x_flat(bsm_ez.n());
     for (size_type i = 0; i < x_flat.size(); ++i)
       x_flat(i) = x(i);
 
-    const Vector<double> y_ref = reference_vmult(M, x_flat);
+    const Vector<double> ref_result = reference_vmult(bsm_ez, x_flat);
 
-    for (size_type i = 0; i < M.m(); ++i)
-      AssertThrow(y(i) == y_ref(i), ExcInternalError());
+    for (size_type i = 0; i < bsm_ez.m(); ++i)
+      AssertThrow(result(i) == ref_result(i), ExcInternalError());
 
-    print_vector("vmult", y);
+    print_vector("vmult", result);
 
     // Tvmult (block-block)
-    BlockVector<double> xt, yt;
-    xt.reinit({2, 3}); // rows
-    yt.reinit({3, 2}); // cols
+    BlockVector<double> xt, result_T;
+    xt.reinit({2, 3});       // rows
+    result_T.reinit({3, 2}); // cols
     fill_linear(xt);
 
-    M.Tvmult(yt, xt);
+    bsm_ez.Tvmult(result_T, xt);
 
-    Vector<double> xt_flat(M.m());
+    Vector<double> xt_flat(bsm_ez.m());
     for (size_type i = 0; i < xt_flat.size(); ++i)
       xt_flat(i) = xt(i);
 
-    const Vector<double> yt_ref = reference_Tvmult(M, xt_flat);
+    const Vector<double> ref_result_T = reference_Tvmult(bsm_ez, xt_flat);
 
-    for (size_type j = 0; j < M.n(); ++j)
-      AssertThrow(yt(j) == yt_ref(j), ExcInternalError());
+    for (size_type j = 0; j < bsm_ez.n(); ++j)
+      AssertThrow(result_T(j) == ref_result_T(j), ExcInternalError());
 
-    print_vector("Tvmult", yt);
+    print_vector("Tvmult", result_T);
 
     deallog.pop();
   }
@@ -264,41 +256,41 @@ namespace
     deallog.push("vmult block-Vector + Tvmult Vector-block");
 
     // 2x1 blocks => one block column
-    BlockSparseMatrixEZ<double> M;
-    setup_blocks<double>(M, {2, 3}, {5}, 4);
-    fill_two_entries_per_row(M);
+    BlockSparseMatrixEZ<double> bsm_ez;
+    setup_blocks<double>(bsm_ez, {2, 3}, {5}, 4);
+    fill_two_entries_per_row(bsm_ez);
 
-    Vector<double> x(M.n());
+    Vector<double> x(bsm_ez.n());
     fill_linear(x);
 
-    BlockVector<double> y;
-    y.reinit({2, 3});
+    BlockVector<double> result;
+    result.reinit({2, 3});
 
-    M.vmult(y, x);
+    bsm_ez.vmult(result, x);
 
-    const Vector<double> y_ref = reference_vmult(M, x);
-    for (size_type i = 0; i < M.m(); ++i)
-      AssertThrow(y(i) == y_ref(i), ExcInternalError());
+    const Vector<double> y_ref = reference_vmult(bsm_ez, x);
+    for (size_type i = 0; i < bsm_ez.m(); ++i)
+      AssertThrow(result(i) == y_ref(i), ExcInternalError());
 
-    print_vector("vmult", y);
+    print_vector("vmult", result);
 
     // Tvmult(Vector&, BlockVector&) valid because: one block column
     BlockVector<double> xt;
     xt.reinit({2, 3});
     fill_linear(xt);
 
-    Vector<double> yt(M.n());
-    M.Tvmult(yt, xt);
+    Vector<double> result_T(bsm_ez.n());
+    bsm_ez.Tvmult(result_T, xt);
 
-    Vector<double> xt_flat(M.m());
+    Vector<double> xt_flat(bsm_ez.m());
     for (size_type i = 0; i < xt_flat.size(); ++i)
       xt_flat(i) = xt(i);
 
-    const Vector<double> yt_ref = reference_Tvmult(M, xt_flat);
-    for (size_type j = 0; j < M.n(); ++j)
-      AssertThrow(yt(j) == yt_ref(j), ExcInternalError());
+    const Vector<double> ref_result_T = reference_Tvmult(bsm_ez, xt_flat);
+    for (size_type j = 0; j < bsm_ez.n(); ++j)
+      AssertThrow(result_T(j) == ref_result_T(j), ExcInternalError());
 
-    print_vector("Tvmult", yt);
+    print_vector("Tvmult", result_T);
 
     deallog.pop();
   }
@@ -309,40 +301,40 @@ namespace
     deallog.push("vmult Vector-block + Tvmult block-Vector");
 
     // 1x2 blocks => one block row
-    BlockSparseMatrixEZ<double> M;
-    setup_blocks<double>(M, {5}, {2, 3}, 4);
-    fill_two_entries_per_row(M);
+    BlockSparseMatrixEZ<double> bsm_ez;
+    setup_blocks<double>(bsm_ez, {5}, {2, 3}, 4);
+    fill_two_entries_per_row(bsm_ez);
 
     BlockVector<double> x;
     x.reinit({2, 3});
     fill_linear(x);
 
-    Vector<double> y(M.m());
-    M.vmult(y, x);
+    Vector<double> result(bsm_ez.m());
+    bsm_ez.vmult(result, x);
 
-    Vector<double> x_flat(M.n());
+    Vector<double> x_flat(bsm_ez.n());
     for (size_type i = 0; i < x_flat.size(); ++i)
       x_flat(i) = x(i);
 
-    const Vector<double> y_ref = reference_vmult(M, x_flat);
-    for (size_type i = 0; i < M.m(); ++i)
-      AssertThrow(y(i) == y_ref(i), ExcInternalError());
+    const Vector<double> ref_result = reference_vmult(bsm_ez, x_flat);
+    for (size_type i = 0; i < bsm_ez.m(); ++i)
+      AssertThrow(result(i) == ref_result(i), ExcInternalError());
 
-    print_vector("vmult", y);
+    print_vector("vmult", result);
 
     // Tvmult(BlockVector&, Vector&) valid because: one block row
-    Vector<double> xt(M.m());
+    Vector<double> xt(bsm_ez.m());
     fill_linear(xt);
 
-    BlockVector<double> yt;
-    yt.reinit({2, 3});
-    M.Tvmult(yt, xt);
+    BlockVector<double> result_T;
+    result_T.reinit({2, 3});
+    bsm_ez.Tvmult(result_T, xt);
 
-    const Vector<double> yt_ref = reference_Tvmult(M, xt);
-    for (size_type j = 0; j < M.n(); ++j)
-      AssertThrow(yt(j) == yt_ref(j), ExcInternalError());
+    const Vector<double> ref_result_T = reference_Tvmult(bsm_ez, xt);
+    for (size_type j = 0; j < bsm_ez.n(); ++j)
+      AssertThrow(result_T(j) == ref_result_T(j), ExcInternalError());
 
-    print_vector("Tvmult", yt);
+    print_vector("Tvmult", result_T);
 
     deallog.pop();
   }
@@ -353,31 +345,85 @@ namespace
     deallog.push("vmult/Tvmult Vector-Vector");
 
     // 1x1 blocks => single block
-    BlockSparseMatrixEZ<double> M;
-    setup_blocks<double>(M, {5}, {5}, 4);
-    fill_two_entries_per_row(M);
+    BlockSparseMatrixEZ<double> bsm_ez;
+    setup_blocks<double>(bsm_ez, {5}, {5}, 4);
+    fill_two_entries_per_row(bsm_ez);
 
-    Vector<double> x(M.n()), y(M.m());
+    Vector<double> x(bsm_ez.n()), result(bsm_ez.m());
     fill_linear(x);
 
-    M.vmult(y, x);
+    bsm_ez.vmult(result, x);
 
-    const Vector<double> y_ref = reference_vmult(M, x);
-    for (size_type i = 0; i < M.m(); ++i)
-      AssertThrow(y(i) == y_ref(i), ExcInternalError());
+    const Vector<double> y_ref = reference_vmult(bsm_ez, x);
+    for (size_type i = 0; i < bsm_ez.m(); ++i)
+      AssertThrow(result(i) == y_ref(i), ExcInternalError());
 
-    print_vector("vmult", y);
+    print_vector("vmult", result);
 
-    Vector<double> xt(M.m()), yt(M.n());
+    Vector<double> xt(bsm_ez.m()), result_T(bsm_ez.n());
     fill_linear(xt);
 
-    M.Tvmult(yt, xt);
+    bsm_ez.Tvmult(result_T, xt);
 
-    const Vector<double> yt_ref = reference_Tvmult(M, xt);
-    for (size_type j = 0; j < M.n(); ++j)
-      AssertThrow(yt(j) == yt_ref(j), ExcInternalError());
+    const Vector<double> ref_result_T = reference_Tvmult(bsm_ez, xt);
+    for (size_type j = 0; j < bsm_ez.n(); ++j)
+      AssertThrow(result_T(j) == ref_result_T(j), ExcInternalError());
 
-    print_vector("Tvmult", yt);
+    print_vector("Tvmult", result_T);
+
+    deallog.pop();
+  }
+
+  void
+  test_utilities()
+  {
+    deallog.push("ctors/operators");
+
+    BlockSparseMatrixEZ<double> bsm_ez_1;
+    deallog << "default empty " << bsm_ez_1.empty() << std::endl;
+
+    BlockSparseMatrixEZ<double> bsm_ez_2(2, 3);
+    deallog << "ctor blocks " << bsm_ez_2.n_block_rows() << ' '
+            << bsm_ez_2.n_block_cols() << std::endl;
+    deallog << "ctor empty " << bsm_ez_2.empty() << std::endl;
+
+    // Test copy constructor (only works if the rhs has empty blocks)
+    BlockSparseMatrixEZ<double> bsm_ez_3(bsm_ez_2);
+    deallog << "copy_ctor blocks " << bsm_ez_3.n_block_rows() << ' '
+            << bsm_ez_3.n_block_cols() << std::endl;
+    deallog << "copy_ctor empty " << bsm_ez_3.empty() << std::endl;
+
+    // Test assignment operator (only works if the rhs has empty blocks)
+    BlockSparseMatrixEZ<double> bsm_ez_4(2, 3);
+    bsm_ez_4 = bsm_ez_3;
+    deallog << "copy_assign blocks " << bsm_ez_4.n_block_rows() << ' '
+            << bsm_ez_4.n_block_cols() << std::endl;
+    deallog << "copy_assign empty " << bsm_ez_4.empty() << std::endl;
+
+    BlockSparseMatrixEZ<double> bsm_ez_5;
+    bsm_ez_5.reinit(1, 1);
+    bsm_ez_5.collect_sizes();
+    deallog << "reinit_collect_sizes m n " << bsm_ez_5.m() << ' '
+            << bsm_ez_5.n() << std::endl;
+
+    BlockSparseMatrixEZ<double> bsm_ez_6;
+    setup_blocks(bsm_ez_6, {2, 3}, {3, 2}, 4);
+    fill_two_entries_per_row(bsm_ez_6);
+
+    deallog << "before eq0 M(3,4) " << bsm_ez_6(3, 4) << std::endl;
+    bsm_ez_6 = 0.0;
+    deallog << "after eq0 M(3,4) " << bsm_ez_6(3, 4) << std::endl;
+
+    bsm_ez_6.clear();
+    deallog << "after clear empty " << bsm_ez_6.empty() << std::endl;
+
+    BlockSparseMatrixEZ<double> bsm_ez_7;
+    setup_blocks(bsm_ez_7, {5}, {5}, 2);
+    fill_two_entries_per_row(bsm_ez_7);
+
+    std::ostringstream s0, s1;
+    bsm_ez_7.print_statistics(deallog, false);
+    bsm_ez_7.print_statistics(deallog, true);
 
     deallog.pop();
   }
@@ -394,6 +440,7 @@ test()
   deallog << std::fixed << std::setprecision(2);
 
   test_get_set_add_and_scaling();
+  test_utilities();
   test_vmult_and_Tvmult_block_block();
   test_vmult_block_nonblock_and_Tvmult_nonblock_block();
   test_vmult_nonblock_block_and_Tvmult_block_nonblock();
